@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ML dataset chooser</title>
+  <style>
+    :root {
+      --ink: #1a1a1a;
+      --muted: #5c5c5c;
+      --line: #e4e4e4;
+      --blue: #1d4ed8;
+      --bg: #f8fafc;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #ffffff 0%, var(--bg) 100%);
+      color: var(--ink);
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      line-height: 1.45;
+    }
+    .wrap {
+      width: min(980px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 48px;
+    }
+    h1 {
+      font-family: "Iowan Old Style", Palatino, Georgia, serif;
+      font-weight: 500;
+      font-size: clamp(1.9rem, 5vw, 2.5rem);
+      margin: 0 0 8px;
+      letter-spacing: -0.03em;
+    }
+    .lede {
+      color: var(--muted);
+      margin: 0 0 20px;
+      max-width: 44rem;
+    }
+    label.pick {
+      display: block;
+      font-size: .95rem;
+      margin-bottom: 18px;
+    }
+    select {
+      display: block;
+      margin-top: 8px;
+      width: min(100%, 32rem);
+      font: inherit;
+      font-size: 1.05rem;
+      padding: 12px 14px;
+      border: 2px solid var(--blue);
+      border-radius: 12px;
+      background: #fff;
+    }
+    .panel {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+    }
+    h2 {
+      font-family: "Iowan Old Style", Palatino, Georgia, serif;
+      font-weight: 500;
+      font-size: 1.55rem;
+      margin: 0 0 8px;
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      margin: 10px 0 16px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    .chip {
+      border: 1px solid var(--line);
+      background: #f8fafc;
+      border-radius: 999px;
+      padding: 6px 10px;
+    }
+    .about, .idea {
+      margin: 0 0 10px;
+      max-width: 50rem;
+    }
+    .algo {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 10px;
+      background: #dbeafe;
+      border: 1px solid #bfdbfe;
+      color: #1e3a8a;
+      font-weight: 600;
+      margin: 12px 0 18px;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 28px;
+      align-items: start;
+      margin-top: 18px;
+    }
+    svg { width: 100%; height: auto; display: block; }
+    .axis { fill: var(--muted); font-size: 12px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 7px 8px 7px 0;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    th {
+      font-size: .72rem;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0 0 12px;
+    }
+    .filters button {
+      font: inherit;
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 999px;
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+    .filters button.on {
+      border-color: var(--blue);
+      color: var(--blue);
+      background: #eff6ff;
+    }
+    @media (max-width: 760px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Machine learning dataset chooser</h1>
+    <p class="lede">Pick a dataset and see which algorithm is usually the best fit for the task behind it. This is meant for quick experimentation and teaching, not a final production recommendation.</p>
+
+    <label class="pick">Dataset
+      <select id="pick"></select>
+    </label>
+
+    <div class="panel">
+      <h2 id="title"></h2>
+      <div class="meta">
+        <span class="chip" id="task"></span>
+        <span class="chip" id="target"></span>
+        <span class="chip" id="rowsLabel"></span>
+      </div>
+      <p class="about" id="about"></p>
+      <p class="idea" id="idea"></p>
+      <div class="algo" id="algo"></div>
+      <div class="filters" id="filters"></div>
+      <div class="layout">
+        <svg id="chart" viewBox="0 0 640 360" role="img"></svg>
+        <div style="overflow-x:auto"><table id="table"></table></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const sets = [
+      {
+        id: "house-prices",
+        name: "House prices",
+        task: "Regression",
+        target: "Price",
+        rowsLabel: "~500 rows",
+        about: "A small sample of home sales with square footage, bedrooms, neighborhood score, and sale price.",
+        idea: "Use the features to estimate a numeric value. This is a classic linear regression use case when the relationship is mostly smooth and continuous.",
+        bestAlgorithm: "Linear Regression",
+        x: "Square feet",
+        y: "Price ($k)",
+        cols: ["home_id", "sq_ft", "bedrooms", "neighborhood", "price_k"],
+        rows: [
+          [101, 1200, 2, "A", 210],
+          [102, 1480, 3, "A", 260],
+          [103, 1720, 3, "B", 300],
+          [104, 1960, 4, "B", 345],
+          [105, 2140, 4, "C", 390],
+          [106, 2300, 4, "C", 430],
+          [107, 2480, 5, "C", 470]
+        ],
+        chart: row => [row[1], row[4]],
+        filterCol: null
+      },
+      {
+        id: "customer-churn",
+        name: "Customer churn",
+        task: "Binary classification",
+        target: "Churned",
+        rowsLabel: "~600 rows",
+        about: "Customer usage statistics and whether they cancelled the service within 30 days.",
+        idea: "This is a yes/no problem, so logistic regression is often a strong baseline. It is easy to explain and works well with tabular data.",
+        bestAlgorithm: "Logistic Regression",
+        x: "Monthly usage hours",
+        y: "Probability of churn",
+        cols: ["customer", "usage_hours", "support_calls", "plan", "churned"],
+        rows: [
+          [1, 15, 2, "Basic", 0],
+          [2, 20, 3, "Basic", 0],
+          [3, 28, 5, "Premium", 1],
+          [4, 35, 6, "Premium", 1],
+          [5, 42, 7, "Plus", 1],
+          [6, 10, 1, "Basic", 0],
+          [7, 18, 2, "Plus", 0],
+          [8, 30, 4, "Premium", 1]
+        ],
+        chart: row => [row[1], row[4]],
+        filterCol: 3
+      },
+      {
+        id: "iris",
+        name: "Iris flower species",
+        task: "Multi-class classification",
+        target: "Species",
+        rowsLabel: "~150 rows",
+        about: "Petal and sepal measurements used to classify iris flowers into three species.",
+        idea: "This is a classic multi-class dataset. Decision trees or SVMs are highly suitable, and the decision tree is easy to interpret.",
+        bestAlgorithm: "Decision Tree",
+        x: "Petal length (cm)",
+        y: "Petal width (cm)",
+        cols: ["sepal_len", "sepal_wid", "petal_len", "petal_wid", "species"],
+        rows: [
+          [5.1, 3.5, 1.4, 0.2, "setosa"],
+          [5.9, 3.0, 4.2, 1.5, "virginica"],
+          [6.3, 2.8, 5.1, 1.5, "virginica"],
+          [5.7, 2.8, 4.1, 1.3, "versicolor"],
+          [5.0, 3.3, 1.4, 0.2, "setosa"],
+          [6.0, 2.2, 4.0, 1.0, "versicolor"]
+        ],
+        chart: row => [row[2], row[3]],
+        filterCol: 4
+      },
+      {
+        id: "digits",
+        name: "Handwritten digits",
+        task: "Classification",
+        target: "Digit",
+        rowsLabel: "~1,000 rows",
+        about: "Small digit images flattened into pixel values. The goal is to identify the written number.",
+        idea: "This is high-dimensional and often works very well with SVM or KNN. SVM is a common choice when the feature space is large and clear separation exists.",
+        bestAlgorithm: "SVM",
+        x: "Pixel intensity A",
+        y: "Pixel intensity B",
+        cols: ["pixel_a", "pixel_b", "pixel_c", "label"],
+        rows: [
+          [18, 30, 45, 2],
+          [25, 40, 38, 2],
+          [66, 44, 52, 7],
+          [72, 25, 18, 7],
+          [25, 24, 42, 1],
+          [48, 34, 50, 1]
+        ],
+        chart: row => [row[0], row[1]],
+        filterCol: 3
+      },
+      {
+        id: "nearest-neighbor",
+        name: "Wine preference sample",
+        task: "Similarity / classification",
+        target: "Class",
+        rowsLabel: "~200 rows",
+        about: "A compact dataset with aroma and acidity features used to group wines into classes.",
+        idea: "KNN is effective when the class of a new sample is likely to match nearby examples. The method is intuitive and works well with small, clean tabular data.",
+        bestAlgorithm: "KNN",
+        x: "Alcohol",
+        y: "Acidity",
+        cols: ["alcohol", "acidity", "phenols", "class"],
+        rows: [
+          [12.8, 3.1, 2.4, "A"],
+          [13.2, 2.9, 2.3, "A"],
+          [11.8, 2.7, 1.9, "B"],
+          [10.9, 3.8, 1.6, "B"],
+          [13.6, 3.0, 2.7, "A"],
+          [12.1, 3.6, 1.8, "B"]
+        ],
+        chart: row => [row[0], row[1]],
+        filterCol: 3
+      },
+      {
+        id: "segments",
+        name: "Customer segmentation",
+        task: "Clustering",
+        target: "Segment",
+        rowsLabel: "~700 rows",
+        about: "Mall customers summarized by annual income and spending score. The goal is to group similar customers together.",
+        idea: "This is not a supervised target problem. Clustering is used, and KNN can also help when you need nearest-neighbor style personalization rules.",
+        bestAlgorithm: "KNN / Clustering",
+        x: "Annual income",
+        y: "Spending score",
+        cols: ["customer", "income", "spending", "segment"],
+        rows: [
+          [1, 15, 39, "Low spend"],
+          [2, 31, 81, "High value"],
+          [3, 28, 48, "Moderate"],
+          [4, 39, 73, "High value"],
+          [5, 12, 51, "Moderate"],
+          [6, 66, 29, "Low spend"]
+        ],
+        chart: row => [row[1], row[2]],
+        filterCol: 3
+      }
+    ];
+
+    const pick = document.getElementById("pick");
+    const title = document.getElementById("title");
+    const task = document.getElementById("task");
+    const target = document.getElementById("target");
+    const rowsLabel = document.getElementById("rowsLabel");
+    const about = document.getElementById("about");
+    const idea = document.getElementById("idea");
+    const algo = document.getElementById("algo");
+    const filters = document.getElementById("filters");
+    const chart = document.getElementById("chart");
+    const table = document.getElementById("table");
+    let filter = "All";
+
+    sets.forEach(set => {
+      const option = document.createElement("option");
+      option.value = set.id;
+      option.textContent = set.name;
+      pick.appendChild(option);
+    });
+
+    function draw(points, xLabel, yLabel) {
+      chart.hidden = false;
+      const pad = { l: 56, r: 16, t: 16, b: 40 };
+      const w = 640, h = 360;
+      const xs = points.map(p => p[0]);
+      const ys = points.map(p => p[1]);
+      const minX = Math.min(...xs), maxX = Math.max(...xs);
+      const minY = Math.min(...ys), maxY = Math.max(...ys);
+      const sx = v => pad.l + ((v - minX) / (maxX - minX || 1)) * (w - pad.l - pad.r);
+      const sy = v => h - pad.b - ((v - minY) / (maxY - minY || 1)) * (h - pad.t - pad.b);
+      const line = points.map((p, i) => (i ? "L" : "M") + sx(p[0]).toFixed(1) + " " + sy(p[1]).toFixed(1)).join(" ");
+      const dots = points.map(p => `<circle cx="${sx(p[0]).toFixed(1)}" cy="${sy(p[1]).toFixed(1)}" r="4" fill="#1d4ed8"/>`).join("");
+      chart.innerHTML = `
+        <line x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${h - pad.b}" stroke="#ccc"/>
+        <line x1="${pad.l}" y1="${h - pad.b}" x2="${w - pad.r}" y2="${h - pad.b}" stroke="#ccc"/>
+        <path d="${line}" fill="none" stroke="#1d4ed8" stroke-width="2"/>
+        ${dots}
+        <text class="axis" x="${pad.l}" y="14">${yLabel}</text>
+        <text class="axis" x="${w - 120}" y="${h - 12}">${xLabel}</text>
+        <text class="axis" x="8" y="${sy(maxY)}">${maxY}</text>
+        <text class="axis" x="8" y="${h - pad.b}">${minY}</text>`;
+    }
+
+    function showTable(set, rows) {
+      const head = "<tr>" + set.cols.map(c => `<th>${c}</th>`).join("") + "</tr>";
+      const body = rows.map(row => "<tr>" + row.map(cell => `<td>${cell}</td>`).join("") + "</tr>").join("");
+      table.innerHTML = head + body;
+    }
+
+    function render() {
+      const set = sets.find(item => item.id === pick.value);
+      title.textContent = set.name;
+      task.textContent = set.task;
+      target.textContent = "Target: " + set.target;
+      rowsLabel.textContent = "Sample size: " + set.rowsLabel;
+      about.textContent = set.about;
+      idea.textContent = set.idea;
+      algo.textContent = "Best fit: " + set.bestAlgorithm;
+
+      filters.innerHTML = "";
+      let rows = set.rows;
+
+      if (set.filterCol != null) {
+        const values = ["All", ...new Set(set.rows.map(row => row[set.filterCol]))];
+        if (!values.includes(filter)) filter = "All";
+        values.forEach(value => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.textContent = value;
+          button.className = value === filter ? "on" : "";
+          button.addEventListener("click", () => {
+            filter = value;
+            render();
+          });
+          filters.append(button);
+        });
+        if (filter !== "All") rows = rows.filter(row => row[set.filterCol] === filter);
+      }
+
+      showTable(set, rows);
+      if (set.chart && rows.length > 1) {
+        draw(rows.map(set.chart), set.x, set.y);
+      } else {
+        chart.hidden = true;
+        chart.innerHTML = "";
+      }
+    }
+
+    pick.addEventListener("change", () => {
+      filter = "All";
+      render();
+    });
+
+    pick.value = sets[0].id;
+    render();
+  </script>
+</body>
+</html>
