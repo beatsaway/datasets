@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Try an aerospace dataset</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5c5c5c; --line:#e4e4e4; --blue:#1d4ed8; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#fff; color:var(--ink); font-family:"Avenir Next","Segoe UI",sans-serif; line-height:1.45; }
+  .wrap { width:min(920px, calc(100% - 32px)); margin:0 auto; padding:28px 0 48px; }
+  h1 { font-family:"Iowan Old Style",Palatino,Georgia,serif; font-weight:500; font-size:clamp(1.8rem, 5vw, 2.3rem); margin:0 0 8px; letter-spacing:-.03em; }
+  .lede { color:var(--muted); margin:0 0 22px; max-width:40rem; }
+  label.pick { display:block; font-size:.95rem; margin-bottom:18px; }
+  select { display:block; margin-top:8px; width:min(100%, 28rem); font:inherit; font-size:1.05rem; padding:12px 14px; border:2px solid var(--blue); border-radius:12px; background:#fff; }
+  h2 { font-family:"Iowan Old Style",Palatino,Georgia,serif; font-weight:500; font-size:1.45rem; margin:0 0 8px; }
+  .about { color:var(--muted); margin:0 0 8px; }
+  .idea { margin:0 0 8px; }
+  .links { display:flex; flex-wrap:wrap; gap:8px 16px; margin:0 0 18px; }
+  .links a { color:#1d4ed8; }
+  .layout { display:grid; grid-template-columns:1.1fr .9fr; gap:28px; align-items:start; }
+  svg { width:100%; height:auto; display:block; }
+  .axis { fill:var(--muted); font-size:12px; }
+  table { width:100%; border-collapse:collapse; font-size:.92rem; }
+  th, td { text-align:left; padding:7px 8px 7px 0; border-bottom:1px solid var(--line); }
+  th { font-size:.72rem; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); font-weight:600; }
+  .filters { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 12px; }
+  .filters button { font:inherit; border:1px solid var(--line); background:#fff; border-radius:999px; padding:6px 12px; cursor:pointer; }
+  .filters button.on { border-color:var(--blue); color:var(--blue); }
+  @media (max-width:720px) { .layout { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Try an aerospace dataset</h1>
+  <p class="lede">Pick a dataset. The table and chart use a small sample, so you can try the idea in the browser before opening the full files.</p>
+  <label class="pick">Dataset
+    <select id="pick"></select>
+  </label>
+  <h2 id="title"></h2>
+  <p class="about" id="about"></p>
+  <p class="idea" id="idea"></p>
+  <p class="links" id="links"></p>
+  <div class="filters" id="filters"></div>
+  <div class="layout">
+    <svg id="chart" viewBox="0 0 640 360" role="img"></svg>
+    <div style="overflow-x:auto"><table id="table"></table></div>
+  </div>
+</div>
+<script>
+const sets = [
+  {
+    id: "loc",
+    name: "LOC flight trajectories",
+    about: "Fifty recorded flights that lost control, including stalls and spins. Each point has latitude, longitude, altitude, and speed.",
+    idea: "Watch vertical speed. A stall often starts when the aircraft stops climbing and Vz drops.",
+    links: [{ label: "Open a set of emergency flights", href: "https://zenodo.org/records/3937483" }],
+    x: "Time (s)",
+    y: "Altitude (m)",
+    cols: ["t", "lat", "lon", "alt", "vz"],
+    rows: [
+      [0, 22.31, 114.17, 1200, 8],
+      [10, 22.32, 114.18, 1280, 7],
+      [20, 22.33, 114.19, 1340, 4],
+      [30, 22.34, 114.20, 1360, 1],
+      [40, 22.34, 114.21, 1340, -6],
+      [50, 22.33, 114.22, 1210, -14],
+      [60, 22.32, 114.22, 980, -18],
+      [70, 22.31, 114.21, 760, -12],
+      [80, 22.30, 114.20, 620, -4]
+    ],
+    chart: row => [row[0], row[3]]
+  },
+  {
+    id: "adsb",
+    name: "ADS-B near an airport",
+    about: "Radio messages from aircraft: identity code, call sign, position, altitude, and speed. This sample is one departure.",
+    idea: "Plot altitude against time to see the climb after takeoff.",
+    links: [{ label: "Open the ADS-B file", href: "https://ieee-dataport.org/documents/dataset-pohrrp-driven-data-association" }],
+    x: "Time (s)",
+    y: "Altitude (ft)",
+    cols: ["t", "callsign", "lat", "lon", "alt", "speed"],
+    rows: [
+      [0, "CPA101", 22.308, 113.914, 40, 145],
+      [30, "CPA101", 22.318, 113.930, 800, 168],
+      [60, "CPA101", 22.335, 113.955, 2100, 190],
+      [90, "CPA101", 22.360, 113.990, 4200, 220],
+      [120, "CPA101", 22.395, 114.040, 6800, 250],
+      [150, "CPA101", 22.440, 114.100, 9400, 280],
+      [180, "CPA101", 22.500, 114.180, 12000, 310]
+    ],
+    chart: row => [row[0], row[4]]
+  },
+  {
+    id: "battery",
+    name: "NASA battery tests",
+    about: "Lithium-ion batteries charged and discharged until they wear out. Capacity falls as the battery ages.",
+    idea: "Plot capacity against cycle number to see how a small satellite battery fades.",
+    links: [{ label: "Open the NASA battery dataset", href: "https://www.nasa.gov/intelligent-systems-division/discovery-and-systems-health/pcoe/pcoe-data-set-repository/" }],
+    x: "Cycle",
+    y: "Capacity (Ah)",
+    cols: ["cycle", "capacity"],
+    rows: [
+      [1, 2.00], [20, 1.94], [40, 1.86], [60, 1.77],
+      [80, 1.68], [100, 1.57], [120, 1.46], [140, 1.35]
+    ],
+    chart: row => [row[0], row[1]]
+  },
+  {
+    id: "turbofan",
+    name: "Turbofan engine sensors",
+    about: "Sensor readings from jet engines run until a part fails. One reading often drifts before the failure.",
+    idea: "Plot one sensor over time and look for the climb near the end.",
+    links: [
+      { label: "Open the NASA turbofan dataset", href: "https://data.nasa.gov/dataset/cmapss-jet-engine-simulated-data" },
+      { label: "Browse more spacecraft datasets", href: "https://github.com/patrickfleith/awesome-spacecraft-engineering-datasets" }
+    ],
+    x: "Cycle",
+    y: "Sensor 2",
+    cols: ["cycle", "sensor1", "sensor2", "sensor3"],
+    rows: [
+      [1, 518, 642, 1588],
+      [20, 518, 643, 1590],
+      [40, 519, 644, 1591],
+      [60, 520, 646, 1596],
+      [80, 521, 649, 1604],
+      [100, 523, 654, 1618],
+      [120, 526, 662, 1635]
+    ],
+    chart: row => [row[0], row[2]]
+  },
+  {
+    id: "airports",
+    name: "Airports and runways",
+    about: "Open lists of airports, runways, and weather reports. This sample is a few large airports.",
+    idea: "The chart places each airport by longitude and latitude. The table shows how many runways it has.",
+    links: [
+      { label: "Open the airport files", href: "https://ourairports.com/data/" },
+      { label: "Browse the aviation data list", href: "https://github.com/lucianosrp/open-source-aviation" }
+    ],
+    x: "Longitude",
+    y: "Latitude",
+    cols: ["airport", "city", "lat", "lon", "runways"],
+    rows: [
+      ["VHHH", "Hong Kong", 22.31, 113.91, 2],
+      ["EGLL", "London", 51.47, -0.46, 2],
+      ["KJFK", "New York", 40.64, -73.78, 4],
+      ["RJTT", "Tokyo", 35.55, 139.78, 4],
+      ["YSSY", "Sydney", -33.95, 151.18, 3],
+      ["FAOR", "Johannesburg", -26.13, 28.24, 2]
+    ],
+    chart: row => [row[3], row[2]]
+  },
+  {
+    id: "pose",
+    name: "Spacecraft photos",
+    about: "Thousands of pictures of spacecraft, with the craft name and whether Earth or the Moon is behind it.",
+    idea: "Filter the list by craft or background, the way a docking camera might sort what it sees.",
+    links: [{ label: "Open the spacecraft photo dataset", href: "https://huggingface.co/datasets/ascom/spacecraft-close-proximity-pose" }],
+    cols: ["id", "craft", "background"],
+    rows: [
+      [1, "Dragon", "Earth"], [2, "Dragon", "Moon"], [3, "Soyuz", "Earth"],
+      [4, "Soyuz", "Moon"], [5, "Cygnus", "Earth"], [6, "Cygnus", "Moon"],
+      [7, "Dragon", "Earth"], [8, "Soyuz", "Earth"]
+    ],
+    filterCol: 1,
+    chart: null
+  },
+  {
+    id: "tartan",
+    name: "TartanAviation airport traffic",
+    about: "Images, radio speech, and 661 days of aircraft positions recorded at two airports near Pittsburgh.",
+    idea: "Use the positions to see how busy the airspace is through the day.",
+    x: "Hour",
+    y: "Flights seen",
+    cols: ["hour", "flights"],
+    rows: [[6, 4], [8, 18], [10, 27], [12, 22], [14, 19], [16, 24], [18, 11], [20, 3]],
+    chart: row => [row[0], row[1]],
+    links: [
+      { label: "Open TartanAviation", href: "https://theairlab.org/tartanaviation/" },
+      { label: "Download scripts", href: "https://github.com/castacks/TartanAviation" }
+    ]
+  }
+];
+
+const pick = document.getElementById("pick");
+const title = document.getElementById("title");
+const about = document.getElementById("about");
+const idea = document.getElementById("idea");
+  const filters = document.getElementById("filters");
+  const links = document.getElementById("links");
+const chart = document.getElementById("chart");
+const table = document.getElementById("table");
+let filter = "All";
+
+sets.forEach(set => {
+  const option = document.createElement("option");
+  option.value = set.id;
+  option.textContent = set.name;
+  pick.append(option);
+});
+
+function draw(points, xLabel, yLabel) {
+  chart.hidden = false;
+  const pad = { l: 56, r: 16, t: 16, b: 40 };
+  const w = 640, h = 360;
+  const xs = points.map(p => p[0]);
+  const ys = points.map(p => p[1]);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const sx = v => pad.l + ((v - minX) / (maxX - minX || 1)) * (w - pad.l - pad.r);
+  const sy = v => h - pad.b - ((v - minY) / (maxY - minY || 1)) * (h - pad.t - pad.b);
+  const line = points.map((p, i) => (i ? "L" : "M") + sx(p[0]).toFixed(1) + " " + sy(p[1]).toFixed(1)).join(" ");
+  const dots = points.map(p => `<circle cx="${sx(p[0]).toFixed(1)}" cy="${sy(p[1]).toFixed(1)}" r="4" fill="#1d4ed8"/>`).join("");
+  chart.innerHTML = `
+    <line x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${h - pad.b}" stroke="#ccc"/>
+    <line x1="${pad.l}" y1="${h - pad.b}" x2="${w - pad.r}" y2="${h - pad.b}" stroke="#ccc"/>
+    <path d="${line}" fill="none" stroke="#1d4ed8" stroke-width="2"/>
+    ${dots}
+    <text class="axis" x="${pad.l}" y="14">${yLabel}</text>
+    <text class="axis" x="${w - 120}" y="${h - 12}">${xLabel}</text>
+    <text class="axis" x="8" y="${sy(maxY)}">${maxY}</text>
+    <text class="axis" x="8" y="${h - pad.b}">${minY}</text>`;
+}
+
+function showTable(set, rows) {
+  const head = "<tr>" + set.cols.map(c => `<th>${c}</th>`).join("") + "</tr>";
+  const body = rows.map(row => "<tr>" + row.map(cell => `<td>${cell}</td>`).join("") + "</tr>").join("");
+  table.innerHTML = head + body;
+}
+
+function render() {
+  const set = sets.find(item => item.id === pick.value);
+  title.textContent = set.name;
+  about.textContent = set.about;
+  idea.textContent = set.idea;
+  links.replaceChildren(...(set.links || []).map(link => {
+    const a = document.createElement("a");
+    a.href = link.href;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.textContent = link.label;
+    return a;
+  }));
+  filters.innerHTML = "";
+  let rows = set.rows;
+  if (set.filterCol != null) {
+    const values = ["All", ...new Set(set.rows.map(row => row[set.filterCol]))];
+    if (!values.includes(filter)) filter = "All";
+    values.forEach(value => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = value;
+      button.className = value === filter ? "on" : "";
+      button.addEventListener("click", () => { filter = value; render(); });
+      filters.append(button);
+    });
+    if (filter !== "All") rows = rows.filter(row => row[set.filterCol] === filter);
+  }
+  showTable(set, rows);
+  if (set.chart && rows.length > 1) draw(rows.map(set.chart), set.x, set.y);
+  else {
+    chart.hidden = true;
+    chart.innerHTML = "";
+  }
+}
+
+pick.addEventListener("change", () => { filter = "All"; render(); });
+render();
+</script>
+</body>
+</html>
